@@ -160,12 +160,17 @@ def add_note():
 
 @app.route("/api/notes/<int:nid>")
 def api_note(nid):
-    if not current_user():
+    user = current_user()
+    if not user:
         return jsonify(error="auth required"), 401
     con = db()
     r = con.execute("SELECT id,owner,title,body FROM notes WHERE id = ?", (nid,)).fetchone()
     con.close()
-    return (jsonify(dict(r)) if r else (jsonify(error="not found"), 404))
+    # Treat a note owned by another user the same as a missing note. This avoids
+    # disclosing either its contents or its existence through the API.
+    if not r or r["owner"] != user:
+        return jsonify(error="not found"), 404
+    return jsonify(dict(r))
 
 
 @app.route("/search")
